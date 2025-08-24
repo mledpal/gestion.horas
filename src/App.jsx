@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import Calendar from "./components/Calendar";
 import ProjectManager from "./components/ProjectManager";
 import TimeEntryModal from "./components/TimeEntryModal";
+import Configuration from "./components/Configuration";
 import dataStorage from "./data/data.json";
 
 function App() {
@@ -9,7 +10,7 @@ function App() {
 	const [timeEntries, setTimeEntries] = useState({});
 	const [selectedDate, setSelectedDate] = useState(null);
 	const [isModalOpen, setIsModalOpen] = useState(false);
-	const [viewMode, setViewMode] = useState("calendar"); // 'calendar' or 'projects'
+	const [viewMode, setViewMode] = useState("calendar"); // 'calendar', 'projects', or 'config'
 
 	useEffect(() => {
 		// Cargar datos desde localStorage (simulando archivo JSON)
@@ -206,6 +207,30 @@ function App() {
 		setTimeEntries(dataStorage.timeEntries);
 	};
 
+	// Función para importar datos desde archivo JSON
+	const handleImportData = (importedData) => {
+		try {
+			setProjects(importedData.projects || []);
+			setTimeEntries(importedData.timeEntries || {});
+
+			// Guardar en localStorage
+			const data = JSON.stringify(
+				{
+					projects: importedData.projects || [],
+					timeEntries: importedData.timeEntries || {},
+				},
+				null,
+				2
+			);
+			localStorage.setItem("gestionHorasData", data);
+
+			console.log("Datos importados exitosamente");
+		} catch (error) {
+			console.error("Error al importar datos:", error);
+			alert("Error al importar los datos: " + error.message);
+		}
+	};
+
 	const openTodayModal = () => {
 		setSelectedDate(new Date());
 		setIsModalOpen(true);
@@ -236,6 +261,15 @@ function App() {
 							Proyectos
 						</button>
 
+						<button
+							onClick={() => setViewMode("config")}
+							className={`px-6 py-2 rounded-lg font-medium transition-colors ${
+								viewMode === "config" ? "bg-blue-soft-600 text-white" : "bg-white text-blue-soft-600 hover:bg-blue-soft-50"
+							}`}
+						>
+							Configuración
+						</button>
+
 						<button onClick={openTodayModal} className='px-6 py-2 bg-blue-soft-500 text-white rounded-lg hover:bg-blue-soft-600 transition-colors font-medium'>
 							Registrar Horas Hoy
 						</button>
@@ -245,8 +279,10 @@ function App() {
 				<main>
 					{viewMode === "calendar" ? (
 						<Calendar timeEntries={timeEntries} projects={projects} onDateClick={handleDateClick} />
-					) : (
+					) : viewMode === "projects" ? (
 						<ProjectManager projects={projects} onAddProject={handleAddProject} onEditProject={handleEditProject} onDeleteProject={handleDeleteProject} />
+					) : (
+						<Configuration projects={projects} timeEntries={timeEntries} onImportData={handleImportData} />
 					)}
 				</main>
 
