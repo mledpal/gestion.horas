@@ -1,0 +1,19 @@
+{
+	"projects": [
+		{
+			"id": "1",
+			"name": "Proyecto Demo",
+			"description": "Proyecto de demostración",
+			"active": true,
+			"createdAt": "2025-08-24T10:00:00.000Z"
+		},
+		{
+			"id": "2",
+			"name": "Proyecto Inactivo",
+			"description": "Este proyecto está desactivado",
+			"active": false,
+			"createdAt": "2025-08-20T10:00:00.000Z"
+		}
+	],
+	"timeEntries": {}
+}
