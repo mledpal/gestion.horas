@@ -17,6 +17,22 @@ function App() {
 		loadDataFromStorage();
 	}, []);
 
+	// Efecto para guardar automáticamente cuando cambien los datos
+	useEffect(() => {
+		// Solo guardar si ya hay datos cargados (evitar guardar datos vacíos en la carga inicial)
+		if (projects.length > 0 || Object.keys(timeEntries).length > 0) {
+			saveDataToStorage(projects, timeEntries);
+		}
+	}, [projects, timeEntries]);
+
+	// Función para obtener fecha en formato local (evita problemas de zona horaria)
+	const getLocalDateString = (date) => {
+		const localYear = date.getFullYear();
+		const localMonth = String(date.getMonth() + 1).padStart(2, "0");
+		const localDay = String(date.getDate()).padStart(2, "0");
+		return `${localYear}-${localMonth}-${localDay}`;
+	};
+
 	const handleDateClick = (date) => {
 		setSelectedDate(date);
 		setIsModalOpen(true);
@@ -28,7 +44,7 @@ function App() {
 	};
 
 	const handleSaveTimeEntry = (date, projectId, hours, startTime, endTime) => {
-		const dateStr = date.toISOString().split("T")[0];
+		const dateStr = getLocalDateString(date);
 
 		// Crear un objeto con toda la información de la entrada
 		const timeEntry = {
@@ -79,7 +95,7 @@ function App() {
 	};
 
 	const handleEditTimeEntry = (date, projectId, hours, startTime, endTime) => {
-		const dateStr = date.toISOString().split("T")[0];
+		const dateStr = getLocalDateString(date);
 
 		setTimeEntries((prev) => ({
 			...prev,
@@ -98,7 +114,7 @@ function App() {
 	};
 
 	const handleDeleteTimeEntry = (date, projectId) => {
-		const dateStr = date.toISOString().split("T")[0];
+		const dateStr = getLocalDateString(date);
 
 		setTimeEntries((prev) => {
 			const updated = { ...prev };
@@ -115,21 +131,21 @@ function App() {
 		console.log("Eliminando entrada de tiempo:", { date: dateStr, projectId });
 	};
 
-	const handleAddProject = (name, description) => {
+	const handleAddProject = (name, description, active = true) => {
 		const newProject = {
 			id: Date.now().toString(),
 			name,
 			description,
-			active: true, // Nuevo campo activo por defecto
+			active, // Usar el parámetro pasado o true por defecto
 			createdAt: new Date().toISOString(),
 		};
 		setProjects((prev) => {
 			const updatedProjects = [...prev, newProject];
-			saveProjectsToFile(updatedProjects);
 			return updatedProjects;
 		});
 
 		console.log("Guardando proyecto:", newProject);
+		return newProject; // Devolver el proyecto creado
 	};
 
 	const handleEditProject = (projectId, name, description, active) => {
@@ -145,7 +161,6 @@ function App() {
 					  }
 					: project
 			);
-			saveProjectsToFile(updatedProjects);
 			return updatedProjects;
 		});
 
@@ -155,7 +170,6 @@ function App() {
 	const handleDeleteProject = (projectId) => {
 		setProjects((prev) => {
 			const updatedProjects = prev.filter((p) => p.id !== projectId);
-			saveProjectsToFile(updatedProjects);
 			return updatedProjects;
 		});
 
@@ -185,6 +199,17 @@ function App() {
 			localStorage.setItem("gestionHorasData", data);
 		} catch (error) {
 			console.error("Error guardando proyectos:", error);
+		}
+	};
+
+	// Función para guardar todos los datos en localStorage
+	const saveDataToStorage = (updatedProjects = projects, updatedTimeEntries = timeEntries) => {
+		try {
+			const data = JSON.stringify({ projects: updatedProjects, timeEntries: updatedTimeEntries }, null, 2);
+			localStorage.setItem("gestionHorasData", data);
+			console.log("Datos guardados en localStorage");
+		} catch (error) {
+			console.error("Error guardando datos:", error);
 		}
 	};
 
@@ -282,7 +307,7 @@ function App() {
 					) : viewMode === "projects" ? (
 						<ProjectManager projects={projects} onAddProject={handleAddProject} onEditProject={handleEditProject} onDeleteProject={handleDeleteProject} />
 					) : (
-						<Configuration projects={projects} timeEntries={timeEntries} onImportData={handleImportData} />
+						<Configuration projects={projects} timeEntries={timeEntries} onImportData={handleImportData} onAddProject={handleAddProject} onSaveTimeEntry={handleSaveTimeEntry} />
 					)}
 				</main>
 
@@ -291,7 +316,7 @@ function App() {
 						date={selectedDate}
 						projects={projects.filter((p) => p.active !== false)} // Solo proyectos activos
 						allProjects={projects} // Todos los proyectos para mostrar nombres de eliminados
-						existingEntries={selectedDate ? timeEntries[selectedDate.toISOString().split("T")[0]] : {}}
+						existingEntries={selectedDate ? timeEntries[getLocalDateString(selectedDate)] : {}}
 						onSave={handleSaveTimeEntry}
 						onEdit={handleEditTimeEntry}
 						onDelete={handleDeleteTimeEntry}

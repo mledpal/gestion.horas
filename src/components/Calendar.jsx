@@ -26,7 +26,11 @@ const Calendar = ({ timeEntries, projects, onDateClick }) => {
 
 	const getDateString = (day) => {
 		const date = new Date(year, month, day);
-		return date.toISOString().split("T")[0];
+		// Usar fecha local para evitar problemas de zona horaria
+		const localYear = date.getFullYear();
+		const localMonth = String(date.getMonth() + 1).padStart(2, "0");
+		const localDay = String(date.getDate()).padStart(2, "0");
+		return `${localYear}-${localMonth}-${localDay}`;
 	};
 
 	const getDayEntries = (day) => {

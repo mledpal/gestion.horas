@@ -6,6 +6,7 @@ const TimeEntryModal = ({ date, projects, allProjects, existingEntries, onSave, 
 	const [endTime, setEndTime] = useState("");
 	const [calculatedHours, setCalculatedHours] = useState(0);
 	const [editingProjectId, setEditingProjectId] = useState(null);
+	const [editSelectedProjectId, setEditSelectedProjectId] = useState(""); // Nuevo estado para el proyecto seleccionado en edición
 	const [editStartTime, setEditStartTime] = useState("");
 	const [editEndTime, setEditEndTime] = useState("");
 	const [editCalculatedHours, setEditCalculatedHours] = useState(0);
@@ -85,6 +86,7 @@ const TimeEntryModal = ({ date, projects, allProjects, existingEntries, onSave, 
 			const endTime = typeof entry === "object" ? entry.endTime : null;
 
 			setEditingProjectId(projectId);
+			setEditSelectedProjectId(projectId); // Inicializar con el proyecto actual
 			setEditStartTime(startTime || "");
 			setEditEndTime(endTime || "");
 			setEditCalculatedHours(parseFloat(hours) || 0);
@@ -93,9 +95,20 @@ const TimeEntryModal = ({ date, projects, allProjects, existingEntries, onSave, 
 
 	const handleSaveEdit = (e) => {
 		e.preventDefault();
-		if (editingProjectId && editStartTime && editEndTime && editCalculatedHours > 0) {
-			onEdit(date, editingProjectId, editCalculatedHours.toFixed(2), editStartTime, editEndTime);
+		if (editSelectedProjectId && editStartTime && editEndTime && editCalculatedHours > 0) {
+			// Si el proyecto cambió, necesitamos eliminar la entrada anterior y crear una nueva
+			if (editingProjectId !== editSelectedProjectId) {
+				// Eliminar entrada del proyecto anterior
+				onDelete(date, editingProjectId);
+				// Crear nueva entrada en el proyecto seleccionado
+				onSave(date, editSelectedProjectId, editCalculatedHours.toFixed(2), editStartTime, editEndTime);
+			} else {
+				// Si el proyecto es el mismo, solo editar la entrada existente
+				onEdit(date, editingProjectId, editCalculatedHours.toFixed(2), editStartTime, editEndTime);
+			}
+
 			setEditingProjectId(null);
+			setEditSelectedProjectId("");
 			setEditStartTime("");
 			setEditEndTime("");
 			setEditCalculatedHours(0);
@@ -104,6 +117,7 @@ const TimeEntryModal = ({ date, projects, allProjects, existingEntries, onSave, 
 
 	const handleCancelEdit = () => {
 		setEditingProjectId(null);
+		setEditSelectedProjectId("");
 		setEditStartTime("");
 		setEditEndTime("");
 		setEditCalculatedHours(0);
@@ -178,8 +192,29 @@ const TimeEntryModal = ({ date, projects, allProjects, existingEntries, onSave, 
 										if (editingProjectId === projectId) {
 											return (
 												<form key={projectId} onSubmit={handleSaveEdit} className='p-3 bg-blue-soft-50 rounded-lg border-2 border-blue-soft-300'>
-													<div className='mb-2'>
-														<span className='text-blue-soft-700 font-medium text-sm'>Editando: {getProjectName(projectId)}</span>
+													<div className='mb-3'>
+														<span className='text-blue-soft-700 font-medium text-sm'>Editando entrada</span>
+													</div>
+
+													{/* Selector de proyecto */}
+													<div className='mb-3'>
+														<label className='block text-xs font-medium text-blue-soft-700 mb-1'>Proyecto</label>
+														<select
+															value={editSelectedProjectId}
+															onChange={(e) => setEditSelectedProjectId(e.target.value)}
+															className='w-full px-2 py-1 text-sm border border-blue-soft-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-soft-500'
+															required
+														>
+															<option value=''>Seleccionar proyecto</option>
+															{(allProjects || projects)
+																.filter((p) => p.active !== false) // Solo proyectos activos
+																.sort((a, b) => a.name.localeCompare(b.name, "es", { sensitivity: "base" }))
+																.map((project) => (
+																	<option key={project.id} value={project.id}>
+																		{project.name}
+																	</option>
+																))}
+														</select>
 													</div>
 
 													<div className='grid grid-cols-2 gap-2 mb-2'>

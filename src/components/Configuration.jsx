@@ -1,7 +1,9 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 
-const Configuration = ({ projects, timeEntries, onImportData }) => {
+const Configuration = ({ projects, timeEntries, onImportData, onAddProject, onSaveTimeEntry }) => {
 	const fileInputRef = useRef(null);
+	const [quickImportText, setQuickImportText] = useState("");
+	const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
 
 	const exportData = () => {
 		const data = {
@@ -108,6 +110,132 @@ const Configuration = ({ projects, timeEntries, onImportData }) => {
 		return Object.keys(timeEntries).length;
 	};
 
+	// Función para procesar importación rápida de texto
+	const processQuickImport = () => {
+		if (!quickImportText.trim()) {
+			alert("Por favor, introduce el texto a procesar.");
+			return;
+		}
+
+		const lines = quickImportText
+			.trim()
+			.split("\n")
+			.filter((line) => line.trim());
+		const entries = [];
+		const errors = [];
+
+		lines.forEach((line, index) => {
+			// Buscar patrones como: PROYECTO\t\tHH:MM\tHH:MM o PROYECTO   HH:MM   HH:MM
+			const patterns = [
+				// Patrón con tabs: PROYECTO\t\tHH:MM\tHH:MM
+				/^(.+?)\s*\t+\s*(\d{1,2}:\d{2})\s*\t+\s*(\d{1,2}:\d{2})\s*$/,
+				// Patrón con espacios múltiples: PROYECTO    HH:MM    HH:MM
+				/^(.+?)\s{2,}(\d{1,2}:\d{2})\s{2,}(\d{1,2}:\d{2})\s*$/,
+				// Patrón flexible: PROYECTO [espacios/tabs] HH:MM [espacios/tabs] HH:MM
+				/^(.+?)\s+(\d{1,2}:\d{2})\s+(\d{1,2}:\d{2})\s*$/,
+			];
+
+			let match = null;
+			for (const pattern of patterns) {
+				match = line.match(pattern);
+				if (match) break;
+			}
+
+			if (match) {
+				const [, projectName, startTime, endTime] = match;
+				const cleanProjectName = projectName.trim();
+
+				// Validar formato de horas
+				const timePattern = /^([01]?\d|2[0-3]):([0-5]\d)$/;
+				if (!timePattern.test(startTime) || !timePattern.test(endTime)) {
+					errors.push(`Línea ${index + 1}: Formato de hora inválido - ${line}`);
+					return;
+				}
+
+				// Calcular horas
+				const start = new Date(`1970-01-01T${startTime}:00`);
+				const end = new Date(`1970-01-01T${endTime}:00`);
+				let diffMs = end - start;
+
+				// Si la hora de fin es menor que la de inicio, asumimos que pasa al día siguiente
+				if (diffMs < 0) {
+					diffMs += 24 * 60 * 60 * 1000;
+				}
+
+				const hours = diffMs / (1000 * 60 * 60);
+
+				entries.push({
+					projectName: cleanProjectName,
+					startTime,
+					endTime,
+					hours: hours.toFixed(2),
+				});
+			} else {
+				errors.push(`Línea ${index + 1}: Formato no reconocido - ${line}`);
+			}
+		});
+
+		if (errors.length > 0) {
+			alert("Errores encontrados:\n\n" + errors.join("\n") + "\n\n¿Deseas continuar con las entradas válidas?");
+		}
+
+		if (entries.length === 0) {
+			alert("No se encontraron entradas válidas para procesar.");
+			return;
+		}
+
+		// Mostrar resumen antes de importar
+		const summary = entries.map((e) => `${e.projectName}: ${e.startTime}-${e.endTime} (${e.hours}h)`).join("\n");
+		const confirmImport = window.confirm(`Se procesarán ${entries.length} entradas para la fecha ${selectedDate}:\n\n${summary}\n\n¿Continuar?`);
+
+		if (!confirmImport) return;
+
+		// Procesar cada entrada
+		const selectedDateObj = new Date(selectedDate + "T12:00:00"); // Mediodía para evitar problemas de zona horaria
+		const newProjects = [];
+
+		entries.forEach((entry) => {
+			// Buscar proyecto existente
+			let project = projects.find((p) => p.name.toLowerCase().trim() === entry.projectName.toLowerCase().trim());
+
+			if (!project) {
+				// Buscar en proyectos recién creados en esta sesión
+				project = newProjects.find((p) => p.name.toLowerCase().trim() === entry.projectName.toLowerCase().trim());
+			}
+
+			if (!project) {
+				// Crear nuevo proyecto
+				const newProject = {
+					id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+					name: entry.projectName,
+					description: `Proyecto creado automáticamente desde importación rápida`,
+					active: true,
+				};
+
+				// Agregarlo a la lista de nuevos proyectos
+				newProjects.push(newProject);
+
+				// Agregarlo al sistema
+				onAddProject(newProject.name, newProject.description, newProject.active);
+				project = newProject;
+			}
+
+			// Guardar entrada de tiempo
+			onSaveTimeEntry(selectedDateObj, project.id, entry.hours, entry.startTime, entry.endTime);
+		});
+
+		const newProjectsCount = newProjects.length;
+		const message =
+			newProjectsCount > 0
+				? `¡Importación completada! Se procesaron ${entries.length} entradas y se crearon ${newProjectsCount} proyectos nuevos:\n${newProjects
+						.map((p) => `• ${p.name}`)
+						.join("\n")}`
+				: `¡Importación completada! Se procesaron ${entries.length} entradas.`;
+
+		alert(message);
+		setQuickImportText(""); // Limpiar el texto
+	};
+
 	return (
 		<div className='bg-white rounded-lg shadow-lg p-6'>
 			<h2 className='text-2xl font-bold text-blue-soft-800 mb-6'>Configuración</h2>
@@ -127,6 +255,64 @@ const Configuration = ({ projects, timeEntries, onImportData }) => {
 					<div className='text-center'>
 						<div className='text-2xl font-bold text-blue-soft-600'>{getTotalHours().toFixed(1)}</div>
 						<div className='text-sm text-blue-soft-700'>Horas totales</div>
+					</div>
+				</div>
+			</div>
+
+			{/* Importación Rápida de Texto */}
+			<div className='bg-purple-50 border border-purple-200 rounded-lg p-4 mb-6'>
+				<h3 className='text-lg font-semibold text-purple-800 mb-4 flex items-center gap-2'>
+					<svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+						<path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M13 10V3L4 14h7v7l9-11h-7z' />
+					</svg>
+					Importación Rápida de Texto
+				</h3>
+
+				<div className='mb-4'>
+					<p className='text-sm text-purple-700 mb-3'>
+						Pega texto con formato: <code className='bg-purple-100 px-1 rounded'>PROYECTO HH:MM HH:MM</code>
+					</p>
+					<div className='bg-purple-100 p-3 rounded text-xs text-purple-800 mb-3'>
+						<strong>Ejemplo:</strong>
+						<br />
+						BEKLUB&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;8:00&nbsp;&nbsp;&nbsp;&nbsp;10:00
+						<br />
+						API GYM&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;10:00&nbsp;&nbsp;&nbsp;11:00
+						<br />
+						ASPERGER&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;11:30&nbsp;&nbsp;&nbsp;15:00
+					</div>
+				</div>
+
+				<div className='grid grid-cols-1 md:grid-cols-3 gap-4 mb-4'>
+					<div className='md:col-span-2'>
+						<label className='block text-sm font-medium text-purple-700 mb-2'>Texto a procesar:</label>
+						<textarea
+							value={quickImportText}
+							onChange={(e) => setQuickImportText(e.target.value)}
+							placeholder='Pega aquí tu texto con los horarios...'
+							className='w-full h-32 px-3 py-2 border border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono text-sm'
+						/>
+					</div>
+
+					<div>
+						<label className='block text-sm font-medium text-purple-700 mb-2'>Fecha de aplicación:</label>
+						<input
+							type='date'
+							value={selectedDate}
+							onChange={(e) => setSelectedDate(e.target.value)}
+							className='w-full px-3 py-2 border border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 mb-4'
+						/>
+
+						<button
+							onClick={processQuickImport}
+							disabled={!quickImportText.trim()}
+							className='w-full px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors font-medium disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2'
+						>
+							<svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+								<path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10' />
+							</svg>
+							Procesar Texto
+						</button>
 					</div>
 				</div>
 			</div>
