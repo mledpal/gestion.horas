@@ -359,14 +359,10 @@ npm run build
 - [ ] Exportar reportes en PDF/Excel
 - [ ] Filtros por proyecto y rango de fechas
 - [ ] Gráficos y estadísticas avanzadas
-- [ ] Notificaciones y recordatorios
 - [ ] Modo oscuro
 - [ ] Sincronización entre dispositivos
 - [ ] API REST para integraciones
-- [ ] Plantillas de horarios
 - [ ] Categorización de proyectos
-- [ ] Facturación automática
-- [ ] Seguimiento de objetivos
 
 ## 📋 Changelog - Nuevas Funcionalidades
 
