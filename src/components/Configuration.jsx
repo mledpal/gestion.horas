@@ -145,16 +145,25 @@ const Configuration = ({ projects, timeEntries, onImportData, onAddProject, onSa
 				const [, projectName, startTime, endTime] = match;
 				const cleanProjectName = projectName.trim();
 
-				// Validar formato de horas
+				// Normalizar formato de horas (agregar 0 inicial si es necesario)
+				const normalizeTime = (time) => {
+					const [hours, minutes] = time.split(":");
+					return `${hours.padStart(2, "0")}:${minutes}`;
+				};
+
+				const normalizedStartTime = normalizeTime(startTime);
+				const normalizedEndTime = normalizeTime(endTime);
+
+				// Validar formato de horas (acepta tanto 1:00 como 01:00)
 				const timePattern = /^([01]?\d|2[0-3]):([0-5]\d)$/;
 				if (!timePattern.test(startTime) || !timePattern.test(endTime)) {
 					errors.push(`Línea ${index + 1}: Formato de hora inválido - ${line}`);
 					return;
 				}
 
-				// Calcular horas
-				const start = new Date(`1970-01-01T${startTime}:00`);
-				const end = new Date(`1970-01-01T${endTime}:00`);
+				// Calcular horas usando los horarios normalizados
+				const start = new Date(`1970-01-01T${normalizedStartTime}:00`);
+				const end = new Date(`1970-01-01T${normalizedEndTime}:00`);
 				let diffMs = end - start;
 
 				// Si la hora de fin es menor que la de inicio, asumimos que pasa al día siguiente
@@ -166,8 +175,8 @@ const Configuration = ({ projects, timeEntries, onImportData, onAddProject, onSa
 
 				entries.push({
 					projectName: cleanProjectName,
-					startTime,
-					endTime,
+					startTime: normalizedStartTime, // Usar horario normalizado
+					endTime: normalizedEndTime, // Usar horario normalizado
 					hours: hours.toFixed(2),
 				});
 			} else {
@@ -270,16 +279,17 @@ const Configuration = ({ projects, timeEntries, onImportData, onAddProject, onSa
 
 				<div className='mb-4'>
 					<p className='text-sm text-purple-700 mb-3'>
-						Pega texto con formato: <code className='bg-purple-100 px-1 rounded'>PROYECTO HH:MM HH:MM</code>
+						Pega texto con formato: <code className='bg-purple-100 px-1 rounded'>PROYECTO H:MM HH:MM</code> o{" "}
+						<code className='bg-purple-100 px-1 rounded'>PROYECTO HH:MM HH:MM</code>
 					</p>
 					<div className='bg-purple-100 p-3 rounded text-xs text-purple-800 mb-3'>
-						<strong>Ejemplo:</strong>
+						<strong>Ejemplo (ambos formatos válidos):</strong>
 						<br />
-						BEKLUB&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;8:00&nbsp;&nbsp;&nbsp;&nbsp;10:00
+						BEKLUB&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;8:00&nbsp;&nbsp;&nbsp;&nbsp;10:00&nbsp;&nbsp;&nbsp;←&nbsp;Formato&nbsp;1&nbsp;dígito
 						<br />
-						API GYM&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;10:00&nbsp;&nbsp;&nbsp;11:00
+						API GYM&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;10:00&nbsp;&nbsp;&nbsp;11:00&nbsp;&nbsp;←&nbsp;Formato&nbsp;2&nbsp;dígitos
 						<br />
-						ASPERGER&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;11:30&nbsp;&nbsp;&nbsp;15:00
+						ASPERGER&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1:30&nbsp;&nbsp;&nbsp;&nbsp;15:00&nbsp;&nbsp;&nbsp;←&nbsp;Mixto
 					</div>
 				</div>
 
