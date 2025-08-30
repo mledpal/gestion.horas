@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import Calendar from "./components/Calendar";
 import ProjectManager from "./components/ProjectManager";
 import TimeEntryModal from "./components/TimeEntryModal";
+import QuickProjectModal from "./components/QuickProjectModal";
 import Configuration from "./components/Configuration";
 import dataStorage from "./data/data.json";
 
@@ -11,6 +12,7 @@ function App() {
 	const [selectedDate, setSelectedDate] = useState(null);
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [viewMode, setViewMode] = useState("calendar"); // 'calendar', 'projects', or 'config'
+	const [isQuickProjectModalOpen, setIsQuickProjectModalOpen] = useState(false);
 
 	useEffect(() => {
 		// Cargar datos desde localStorage (simulando archivo JSON)
@@ -261,6 +263,63 @@ function App() {
 		setIsModalOpen(true);
 	};
 
+	const openQuickProjectModal = () => {
+		setIsQuickProjectModalOpen(true);
+	};
+
+	const closeQuickProjectModal = () => {
+		setIsQuickProjectModalOpen(false);
+	};
+
+	const handleQuickProjectSubmit = (projectText) => {
+		const trimmedText = projectText.trim();
+		if (!trimmedText) return;
+
+		// Verificar formato obligatorio: PROYECTO  8:00  10:00
+		const hourPattern = /^(.+?)\s+(\d{1,2}:\d{2})\s+(\d{1,2}:\d{2})$/;
+		const match = trimmedText.match(hourPattern);
+
+		if (!match) {
+			alert("Formato inválido. Debe incluir: PROYECTO		8:00		10:00");
+			return;
+		}
+
+		// Extraer proyecto y horas
+		const projectName = match[1].trim();
+		const startTime = match[2];
+		const endTime = match[3];
+
+		// Calcular horas trabajadas
+		const [startHour, startMinute] = startTime.split(":").map(Number);
+		const [endHour, endMinute] = endTime.split(":").map(Number);
+
+		const startMinutes = startHour * 60 + startMinute;
+		const endMinutes = endHour * 60 + endMinute;
+
+		let diffMinutes = endMinutes - startMinutes;
+		if (diffMinutes < 0) {
+			diffMinutes += 24 * 60; // Agregar 24 horas si cruza medianoche
+		}
+
+		const hours = diffMinutes / 60;
+
+		// Buscar o crear proyecto
+		let project = projects.find((p) => p.name.toLowerCase().trim() === projectName.toLowerCase().trim());
+
+		if (!project) {
+			// Crear nuevo proyecto
+			project = handleAddProject(projectName, "Proyecto creado desde registro rápido", true);
+		}
+
+		if (project) {
+			// Guardar entrada de tiempo para hoy
+			const today = new Date();
+			handleSaveTimeEntry(today, project.id, hours, startTime, endTime);
+			alert(`Proyecto "${project.name}" registrado con ${hours} horas (${startTime} - ${endTime}) para hoy`);
+			closeQuickProjectModal();
+		}
+	};
+
 	return (
 		<div className='min-h-screen bg-gradient-to-br from-blue-soft-50 to-blue-soft-100'>
 			<div className='container mx-auto px-4 py-8'>
@@ -298,6 +357,10 @@ function App() {
 						<button onClick={openTodayModal} className='px-6 py-2 bg-blue-soft-500 text-white rounded-lg hover:bg-blue-soft-600 transition-colors font-medium'>
 							Registrar Horas Hoy
 						</button>
+
+						<button onClick={openQuickProjectModal} className='px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-medium'>
+							Registro Rápido
+						</button>
 					</div>
 				</header>
 
@@ -323,6 +386,8 @@ function App() {
 						onClose={handleCloseModal}
 					/>
 				)}
+
+				{isQuickProjectModalOpen && <QuickProjectModal onSubmit={handleQuickProjectSubmit} onClose={closeQuickProjectModal} />}
 			</div>
 		</div>
 	);

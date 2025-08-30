@@ -213,23 +213,17 @@ const Configuration = ({ projects, timeEntries, onImportData, onAddProject, onSa
 			}
 
 			if (!project) {
-				// Crear nuevo proyecto
-				const newProject = {
-					id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-					name: entry.projectName,
-					description: `Proyecto creado automáticamente desde importación rápida`,
-					active: true,
-				};
+				// Crear nuevo proyecto usando onAddProject que devuelve el proyecto creado
+				const createdProject = onAddProject(entry.projectName, `Proyecto creado automáticamente desde importación rápida`, true);
 
-				// Agregarlo a la lista de nuevos proyectos
-				newProjects.push(newProject);
+				// Agregar a la lista de nuevos proyectos para tracking
+				newProjects.push(createdProject);
 
-				// Agregarlo al sistema
-				onAddProject(newProject.name, newProject.description, newProject.active);
-				project = newProject;
+				// Usar el proyecto creado con su ID correcto
+				project = createdProject;
 			}
 
-			// Guardar entrada de tiempo
+			// Guardar entrada de tiempo con el ID correcto del proyecto
 			onSaveTimeEntry(selectedDateObj, project.id, entry.hours, entry.startTime, entry.endTime);
 		});
 
